@@ -39,7 +39,7 @@ void setup() {
 }
 
 // the loop routine runs over and over again forever:
-  const int sentEvery = 10;
+  const int sentEvery = 5;
   int lastSent = sentEvery;
 void loop() 
 {
