@@ -65,9 +65,9 @@ void interruptRoutine()
   const float degPerPulse = 0.2; // 1/pulsesPerRound*360
   
   if(digitalRead(phasePin)){
-    targetPosition = targetPosition - degPerPulse;
-  }else{
     targetPosition = targetPosition + degPerPulse;
+  }else{
+    targetPosition = targetPosition - degPerPulse;
   }
   
   if(targetPosition >= 359.99){
