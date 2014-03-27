@@ -1,86 +1,235 @@
 /**********************************************************
 *	Test Program for Arduino
-*	
+*
 *	Developement started: 03/2014
 *	Author: Frederik Böhle code@fboehle.de
 *
 **********************************************************
-*   
+*
 *   Description: This code counts the number of interrupts on pin 2
 *   and sends this value over the serial port
 *
 *   Notes:
 *
-*   Changelog: 
+*   Changelog:
 *
 **********************************************************/
 
+//Define connections
+const int trigger0Pin = A0;
+const int trigger1Pin = A1;
+const int trigger2Pin = A2;
+const int trigger3Pin = A3;
+const int trigger4Pin = A4;
 
-// Pin 13 has an LED connected on most Arduino boards.
-// give it a name:
-int ledOnboardPin = 13;
-int interruptNumber = 0;
-int interruptPin = 2;
-int phasePin = 3;
+const int ledPin = 13;
 
-float targetPosition = 0.0;
+const int motorPhaseAPin = 2;
+const int motorPhaseBPin = 3;
+const int motorPhaseAInterrupt = 0;
+
+//Define environmental variables
+const int triggerPulseLength_us = 1000; //in us
+const int triggerShutter = trigger0Pin;
+const int triggerCamera0 = trigger1Pin;
+const int triggerCamera1 = trigger2Pin;
+const int triggerCamera2 = trigger3Pin;
+const int triggerCamera3 = trigger4Pin;
+
+//Define Global Variables
+int targetPosition = 0;
+int targetShotUntil = 0;
+int targetShotsFired = 0;
 int targetRotations = 0;
-boolean changeHappened = 0;
+float targetPositionDeg = 0.0;
+boolean targetPositionChanged = 0;
+
+
+
+const int pulsesPerRound = 1800; //1800 was the original value
+const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
+
+
+int sequenceLength = 100; //duration of registrateable shots in ms
+int shutterOpeningTime = 10;
+int shutterClosingTime = 10;
+
+
+//error handling routinge. Keeps the LED as long on as the error has been cleared
+void error(String str) {
+  digitalWrite(ledPin, 1);
+  Serial.println("ERROR: " + str);
+}
+
+//shooting execution routine  //should probably go in the main loop under the work that is executed each x ms
+boolean shootingRoutine(void) {
+
+  //check if we have space!!!
+  if (targetShotsFired) {
+    int freeSpace = pulsesPerRound - targetShotUntil;
+    int averageSpaceUsed = targetShotUntil / targetShotsFired;
+    averageSpaceUsed += averageSpaceUsed / 10; //give it plus 10% for security
+    if ((freeSpace - averageSpaceUsed) <= 0 ) return 0;
+  }
+
+
+  while ( targetPosition != (targetShotUntil) ) { //there seems to be a big bug inside the Arduino IDE, as it optimizes the code and doesn't recheck the condition for the while loop, if the variable haven't been touched in it. Therefore it is necessary to pretend the variables have been modified
+    targetPosition = digitalRead(triggerShutter) + targetPosition;
+    targetPosition =  targetPosition - 1;
+  }
+
+  digitalWrite(triggerShutter, 0);
+  delay(shutterOpeningTime);
+  digitalWrite(triggerCamera0, 0);
+  digitalWrite(triggerCamera1, 0);
+  digitalWrite(triggerCamera2, 0);
+  digitalWrite(triggerCamera3, 0);
+  delayMicroseconds(triggerPulseLength_us);
+  digitalWrite(triggerCamera0, 1);
+  digitalWrite(triggerCamera1, 1);
+  digitalWrite(triggerCamera2, 1);
+  digitalWrite(triggerCamera3, 1);
+  delay(sequenceLength - (triggerPulseLength_us / 1000));
+  digitalWrite(triggerShutter, 1);
+  delay(shutterClosingTime);
+
+  if (targetPosition < targetShotUntil) error("Target Overshot");
+
+  targetShotUntil = targetPosition + 1;
+  targetShotsFired++;
+  return 1;
+}
+
+
+
+
+//command execution routine
+void commandExecute(String command) {
+  if (command == "shoot") {
+    Serial.println("Shooting");
+    if (shootingRoutine()) {
+      Serial.print("Shot until ");
+      Serial.println(targetShotUntil);
+    } else {
+      error("Target full");
+    }
+  } else if (command == "resetTarget") {
+    Serial.println("Resetting");
+  } else if (command == "triggerCameras") {
+    Serial.println("triggering Cameras");
+  } else if (command == "targetPosition") {
+    Serial.println(targetPositionDeg);
+  } else if (command == "calibrate") {
+    targetPosition = 0;
+  }
+
+}
+
+
 
 
 // the setup routine runs once when you press reset:
-void setup() {                
+void setup() {
   // initialize the digital pin as an output.
-  pinMode(ledOnboardPin, OUTPUT);     
-  pinMode(interruptPin, INPUT_PULLUP);
-  pinMode(phasePin, INPUT_PULLUP);
-  attachInterrupt(interruptNumber, interruptRoutine, FALLING);
+  pinMode(ledPin, OUTPUT);
+
+  digitalWrite(trigger0Pin, 1);
+  digitalWrite(trigger1Pin, 1);
+  digitalWrite(trigger2Pin, 1);
+  digitalWrite(trigger3Pin, 1);
+  digitalWrite(trigger4Pin, 1);
+
+
+  pinMode(trigger0Pin, OUTPUT);
+  pinMode(trigger1Pin, OUTPUT);
+  pinMode(trigger2Pin, OUTPUT);
+  pinMode(trigger3Pin, OUTPUT);
+  pinMode(trigger4Pin, OUTPUT);
+
+  pinMode(motorPhaseAPin, INPUT_PULLUP);
+  pinMode(motorPhaseBPin, INPUT_PULLUP);
+
+  attachInterrupt(motorPhaseAInterrupt, interruptRoutine, FALLING);
+
   Serial.begin(9600);
 }
 
 // the loop routine runs over and over again forever:
-  const int sentEvery = 5;
-  int lastSent = sentEvery;
-void loop() 
+
+long timeLastWork = 0;
+const int timeWorkPeriod = 1000;
+const int commandBufferLength = 20;
+char commandBuffer[commandBufferLength];
+int commandBufferPosition = 0;
+String command;
+
+void loop()
 {
-  if(changeHappened){
-    changeHappened = 0;
-    
-    if( lastSent == sentEvery ){
-      Serial.print(targetPosition);
-      Serial.print("\n");
-      lastSent = 0;
-    }
-    lastSent ++;
-    digitalWrite(ledOnboardPin, LOW);
+
+
+  //do something every x miliseconds
+  if ((millis() - timeLastWork) >= timeWorkPeriod) {
+    timeLastWork += timeWorkPeriod;
   }
-  
+
+
+  //receive incoming comunication and check if we have to execute a command
+  if (Serial.available() != 0) {
+
+    if (commandBufferPosition == commandBufferLength) {
+      error("commandBuffer overflow");
+      Serial.flush();
+      commandBufferPosition = 0;
+    } else {
+      commandBuffer[commandBufferPosition] = Serial.read();
+    }
+
+    switch (commandBuffer[commandBufferPosition]) {
+      case '!':
+        commandBuffer[commandBufferPosition] = 0;
+        command = String(commandBuffer);
+        commandExecute(command);
+        commandBufferPosition = 0;
+        break;
+      case '\n':
+      case '\r':
+        commandBufferPosition = 0;
+        break;
+      default:
+        commandBufferPosition++;
+        break;
+    }
+  }
+
+
+  if (targetPositionChanged) {
+    targetPositionChanged = 0;
+    //Serial.println(targetPositionDeg);
+  }
+
 
 }
 
-void interruptRoutine()
-{
-  digitalWrite(ledOnboardPin, HIGH);
-  const float pulsesPerRound = 1800;
-  const float degPerPulse = 0.2; // 1/pulsesPerRound*360
-  
-  if(digitalRead(phasePin)){
-    targetPosition = targetPosition + degPerPulse;
-  }else{
-    targetPosition = targetPosition - degPerPulse;
+void interruptRoutine() {
+
+
+  if (digitalRead(motorPhaseBPin)) {
+    targetPosition++;
+  } else {
+    targetPosition--;
   }
-  
-  if(targetPosition >= 359.99){
-    targetPosition = 0;
+
+  if (targetPosition >= pulsesPerRound) {
+    targetPosition = targetPosition - pulsesPerRound;
     targetRotations++;
-  }else if(targetPosition < 0){
-    targetPosition = targetPosition + 360;
+  } else if (targetPosition < 0) {
+    targetPosition = targetPosition + pulsesPerRound;
     targetRotations--;
   }
-  
-  
 
-  changeHappened = 1;
+
+  targetPositionDeg = targetPosition * degPerPulse;
+  targetPositionChanged = 1;
 }
 
 
