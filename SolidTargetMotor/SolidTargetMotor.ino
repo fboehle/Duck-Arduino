@@ -37,11 +37,10 @@ const int triggerCamera2 = trigger3Pin;
 const int triggerCamera3 = trigger4Pin;
 
 //Define Global Variables
-int targetPosition = 0;
-int targetShotUntil = 0;
-int targetShotsFired = 0;
-int targetRotations = 0;
-float targetPositionDeg = 0.0;
+volatile int targetPosition = 0;
+volatile int targetShotUntil = 0;
+volatile int targetShotsFired = 0;
+volatile int targetRotations = 0;
 boolean targetPositionChanged = 0;
 
 
@@ -50,9 +49,9 @@ const int pulsesPerRound = 1800; //1800 was the original value
 const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
 
 
-int sequenceLength = 100; //duration of registrateable shots in ms
-int shutterOpeningTime = 10;
-int shutterClosingTime = 10;
+int sequenceLength = 500; //duration of registrateable shots in ms
+int shutterOpeningTime = 20;
+int shutterClosingTime = 20;
 
 
 //error handling routinge. Keeps the LED as long on as the error has been cleared
@@ -73,10 +72,8 @@ boolean shootingRoutine(void) {
   }
 
 
-  while ( targetPosition != (targetShotUntil) ) { //there seems to be a big bug inside the Arduino IDE, as it optimizes the code and doesn't recheck the condition for the while loop, if the variable haven't been touched in it. Therefore it is necessary to pretend the variables have been modified
-    targetPosition = digitalRead(triggerShutter) + targetPosition;
-    targetPosition =  targetPosition - 1;
-  }
+  while ( targetPosition != (targetShotUntil) ); //pay attention to declare the variable as volatile otherwise the ide optimizes the check out
+   
 
   digitalWrite(triggerShutter, 0);
   delay(shutterOpeningTime);
@@ -100,27 +97,33 @@ boolean shootingRoutine(void) {
   return 1;
 }
 
-
+float absToDeg(int pos){
+  return degPerPulse * pos;
+}
 
 
 //command execution routine
 void commandExecute(String command) {
   if (command == "shoot") {
-    Serial.println("Shooting");
+    Serial.println("ok");
     if (shootingRoutine()) {
-      Serial.print("Shot until ");
-      Serial.println(targetShotUntil);
+      Serial.println(absToDeg(targetShotUntil));
     } else {
-      error("Target full");
+      error("target full");
     }
   } else if (command == "resetTarget") {
-    Serial.println("Resetting");
+    targetShotUntil = 0;
+    Serial.println("Ok");
   } else if (command == "triggerCameras") {
-    Serial.println("triggering Cameras");
+    Serial.println("Ok");
   } else if (command == "targetPosition") {
-    Serial.println(targetPositionDeg);
+    Serial.println(absToDeg(targetPosition));
   } else if (command == "calibrate") {
+    Serial.println("Ok");
     targetPosition = 0;
+  } else if (command == "delay") {
+    Serial.println("Ok");
+    delay(500);
   }
 
 }
@@ -212,6 +215,7 @@ void loop()
 
 void interruptRoutine() {
 
+  digitalWrite(ledPin, !digitalRead(ledPin));
 
   if (digitalRead(motorPhaseBPin)) {
     targetPosition++;
@@ -227,8 +231,6 @@ void interruptRoutine() {
     targetRotations--;
   }
 
-
-  targetPositionDeg = targetPosition * degPerPulse;
   targetPositionChanged = 1;
 }
 
