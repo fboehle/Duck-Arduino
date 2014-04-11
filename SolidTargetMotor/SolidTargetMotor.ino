@@ -1,19 +1,21 @@
 /**********************************************************
-*	Test Program for Arduino
-*
-*	Developement started: 03/2014
-*	Author: Frederik Böhle code@fboehle.de
-*
-**********************************************************
-*
-*   Description: This code counts the number of interrupts on pin 2
-*   and sends this value over the serial port
-*
-*   Notes:
-*
-*   Changelog:
-*
-**********************************************************/
+ *	Arduino Motor Controll
+ *
+ *	Developement started: 03/2014
+ *	Author: Frederik Böhle code@fboehle.de
+ *
+ **********************************************************
+ *
+ *   Description: 
+ *
+ *   Notes:
+ *
+ *   Changelog:
+ *
+ **********************************************************/
+
+#define DEBUG
+
 
 //Define connections
 const int trigger0Pin = A0;
@@ -34,7 +36,7 @@ const int triggerShutter = trigger0Pin;
 const int triggerCamera0 = trigger1Pin;
 const int triggerCamera1 = trigger2Pin;
 const int triggerCamera2 = trigger3Pin;
-const int triggerCamera3 = trigger4Pin;
+const int triggerFlipBlocker = trigger4Pin;
 
 //Define Global Variables
 volatile int targetPosition = 0;
@@ -49,9 +51,9 @@ const int pulsesPerRound = 1800; //1800 was the original value
 const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
 
 
-int sequenceLength = 500; //duration of registrateable shots in ms
-int shutterOpeningTime = 20;
-int shutterClosingTime = 20;
+const int sequenceLengthDefault = 100; //duration of registrateable shots in ms
+const int shutterOpeningTime = 15;
+const int shutterClosingTime = 15;
 
 
 //error handling routinge. Keeps the LED as long on as the error has been cleared
@@ -60,41 +62,54 @@ void error(String str) {
   Serial.println("ERROR: " + str);
 }
 
-//shooting execution routine  //should probably go in the main loop under the work that is executed each x ms
-boolean shootingRoutine(void) {
+//return an OK message
+void ok(void){
+  Serial.println("ok");
+}
 
-  //check if we have space!!!
+
+//shooting execution routine  
+void shootingRoutine(int sequenceLength) {
+
+  //check if we have space! This is still something basic and not completely reliable. Will be rewritten later
   if (targetShotsFired) {
     int freeSpace = pulsesPerRound - targetShotUntil;
     int averageSpaceUsed = targetShotUntil / targetShotsFired;
     averageSpaceUsed += averageSpaceUsed / 10; //give it plus 10% for security
-    if ((freeSpace - averageSpaceUsed) <= 0 ) return 0;
+    if ((freeSpace - averageSpaceUsed) <= 0 ) {
+      error("No free target space");
+      return;
+    }
   }
 
-
-  while ( targetPosition != (targetShotUntil) ); //pay attention to declare the variable as volatile otherwise the ide optimizes the check out
-   
+#ifndef DEBUG
+  while ( targetPosition != (targetShotUntil) ); //pay attention to declare the variable as volatile otherwise the IDE optimizes the check out
+#endif
 
   digitalWrite(triggerShutter, 0);
   delay(shutterOpeningTime);
   digitalWrite(triggerCamera0, 0);
   digitalWrite(triggerCamera1, 0);
   digitalWrite(triggerCamera2, 0);
-  digitalWrite(triggerCamera3, 0);
   delayMicroseconds(triggerPulseLength_us);
   digitalWrite(triggerCamera0, 1);
   digitalWrite(triggerCamera1, 1);
   digitalWrite(triggerCamera2, 1);
-  digitalWrite(triggerCamera3, 1);
   delay(sequenceLength - (triggerPulseLength_us / 1000));
   digitalWrite(triggerShutter, 1);
   delay(shutterClosingTime);
 
-  if (targetPosition < targetShotUntil) error("Target Overshot");
+  if (targetPosition < targetShotUntil){
+    error("Target Overshot");
+    targetShotUntil = pulsesPerRound;
+    targetShotsFired++;
+  }
+  else{
+    ok();
+    targetShotUntil = targetPosition + 1;
+    targetShotsFired++;
+  }
 
-  targetShotUntil = targetPosition + 1;
-  targetShotsFired++;
-  return 1;
 }
 
 float absToDeg(int pos){
@@ -104,26 +119,34 @@ float absToDeg(int pos){
 
 //command execution routine
 void commandExecute(String command) {
-  if (command == "shoot") {
-    Serial.println("ok");
-    if (shootingRoutine()) {
-      Serial.println(absToDeg(targetShotUntil));
-    } else {
-      error("target full");
+  if (command.substring(0,6) == "shoot=") {
+    int sequenceLength = command.substring(6).toInt();
+    if((sequenceLength <= 0) || (sequenceLength > 1000)){
+      error("SequenceLength out of range!");
+      return;
     }
-  } else if (command == "resetTarget") {
+    shootingRoutine(sequenceLength); //shootingRoutine sends its own answer
+  } 
+  else if (command == "shotUntil") {
+    Serial.println(absToDeg(targetShotUntil));
+  } 
+  else if (command == "resetTarget") {
     targetShotUntil = 0;
-    Serial.println("Ok");
-  } else if (command == "triggerCameras") {
-    Serial.println("Ok");
-  } else if (command == "targetPosition") {
+    ok();
+  } 
+  else if (command == "triggerCameras") {
+    ok();
+  } 
+  else if (command == "targetPosition") {
     Serial.println(absToDeg(targetPosition));
-  } else if (command == "calibrate") {
-    Serial.println("Ok");
+  } 
+  else if (command == "calibrate") {
     targetPosition = 0;
-  } else if (command == "delay") {
-    Serial.println("Ok");
+    ok();
+  } 
+  else if (command == "delay") {
     delay(500);
+    ok();
   }
 
 }
@@ -160,7 +183,7 @@ void setup() {
 // the loop routine runs over and over again forever:
 
 long timeLastWork = 0;
-const int timeWorkPeriod = 1000;
+const int timeWorkPeriod = 10;
 const int commandBufferLength = 20;
 char commandBuffer[commandBufferLength];
 int commandBufferPosition = 0;
@@ -173,6 +196,13 @@ void loop()
   //do something every x miliseconds
   if ((millis() - timeLastWork) >= timeWorkPeriod) {
     timeLastWork += timeWorkPeriod;
+#ifdef DEBUG
+    targetPosition++;
+    targetPosition = targetPosition % pulsesPerRound;
+#endif
+
+
+
   }
 
 
@@ -183,24 +213,26 @@ void loop()
       error("commandBuffer overflow");
       Serial.flush();
       commandBufferPosition = 0;
-    } else {
+    } 
+    else {
       commandBuffer[commandBufferPosition] = Serial.read();
     }
 
     switch (commandBuffer[commandBufferPosition]) {
-      case '!':
-        commandBuffer[commandBufferPosition] = 0;
-        command = String(commandBuffer);
-        commandExecute(command);
-        commandBufferPosition = 0;
-        break;
-      case '\n':
-      case '\r':
-        commandBufferPosition = 0;
-        break;
-      default:
-        commandBufferPosition++;
-        break;
+    case '!':
+    case '?':
+      commandBuffer[commandBufferPosition] = 0;
+      command = String(commandBuffer);
+      commandExecute(command);
+      commandBufferPosition = 0;
+      break;
+    case '\n':
+    case '\r':
+      commandBufferPosition = 0;
+      break;
+    default:
+      commandBufferPosition++;
+      break;
     }
   }
 
@@ -219,19 +251,22 @@ void interruptRoutine() {
 
   if (digitalRead(motorPhaseBPin)) {
     targetPosition++;
-  } else {
+  } 
+  else {
     targetPosition--;
   }
 
   if (targetPosition >= pulsesPerRound) {
     targetPosition = targetPosition - pulsesPerRound;
     targetRotations++;
-  } else if (targetPosition < 0) {
+  } 
+  else if (targetPosition < 0) {
     targetPosition = targetPosition + pulsesPerRound;
     targetRotations--;
   }
 
   targetPositionChanged = 1;
 }
+
 
 
