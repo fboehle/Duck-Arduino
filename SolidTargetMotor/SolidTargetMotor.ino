@@ -12,9 +12,34 @@
  *
  *   Changelog:
  *
- **********************************************************/
+ ********************************************************** 
+ *
+Communication protocoll:
 
-#define DEBUG
+COMMANDS:
+Receives: [command]!
+Sends: 'ok' or error message
+
+Available Commands:
+-calibrate
+-triggerCameras
+-resetTarget
+-shoot=[timeInMs]
+
+
+QUERRIES:
+Receives: [querry]?
+Sends: [value]
+
+Available Querries:
+-targetPosition
+-shotUntil
+ *
+ **********************************************************/
+ 
+ 
+
+//#define DEBUG
 
 
 //Define connections
