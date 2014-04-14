@@ -169,9 +169,13 @@ void commandExecute(String command) {
     targetPosition = 0;
     ok();
   } 
-  else if (command == "delay") {
-    delay(500);
+  else if (command == "testFunction") {
+    digitalWrite(triggerFlipBlocker, 0);
+    delay(2000);
+    digitalWrite(triggerFlipBlocker, 1);
     ok();
+  }else{
+    error("Unknown Command!");
   }
 
 }
