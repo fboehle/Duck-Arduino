@@ -6,7 +6,7 @@
  *
  **********************************************************
  *
- *   Description: 
+ *   Description: Program that uses the encoder pulses from the target motor to accurately control the timing of the laser shutter. The encoder pulses generate an interrupt which keeps track of the target position. The mainloops waits until a full command over the serial port has been send and then deligates it to a subroutine.  
  *
  *   Notes:
  *
@@ -42,7 +42,7 @@ Available Querries:
 //#define DEBUG
 
 
-//Define connections
+//Define hardware connections to the uC
 const int trigger0Pin = A0;
 const int trigger1Pin = A1;
 const int trigger2Pin = A2;
@@ -62,26 +62,20 @@ const int triggerCamera0 = trigger1Pin;
 const int triggerCamera1 = trigger2Pin;
 const int triggerCamera2 = trigger3Pin;
 const int triggerFlipBlocker = trigger4Pin;
+const int pulsesPerRound = 1800; //1800 was the original value
+const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
+const int sequenceLengthDefault = 100; //duration of registrateable shots in ms
+const int shutterOpeningTime = 15;
+const int shutterClosingTime = 15;
 
 //Define Global Variables
 volatile int targetPosition = 0;
 volatile int targetShotUntil = 0;
 volatile int targetShotsFired = 0;
 volatile int targetRotations = 0;
-boolean targetPositionChanged = 0;
+volatile boolean targetPositionChanged = 0;
 
-
-
-const int pulsesPerRound = 1800; //1800 was the original value
-const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
-
-
-const int sequenceLengthDefault = 100; //duration of registrateable shots in ms
-const int shutterOpeningTime = 15;
-const int shutterClosingTime = 15;
-
-
-//error handling routinge. Keeps the LED as long on as the error has been cleared
+//error handling routine. Keeps the LED as long on as the error has been cleared
 void error(String str) {
   digitalWrite(ledPin, 1);
   Serial.println("ERROR: " + str);
@@ -92,6 +86,15 @@ void ok(void){
   Serial.println("ok");
 }
 
+void triggerCameras(void){
+  digitalWrite(triggerCamera0, 0);
+  digitalWrite(triggerCamera1, 0);
+  digitalWrite(triggerCamera2, 0);
+  delayMicroseconds(triggerPulseLength_us);
+  digitalWrite(triggerCamera0, 1);
+  digitalWrite(triggerCamera1, 1);
+  digitalWrite(triggerCamera2, 1);
+}
 
 //shooting execution routine  
 void shootingRoutine(int sequenceLength) {
@@ -113,13 +116,9 @@ void shootingRoutine(int sequenceLength) {
 
   digitalWrite(triggerShutter, 0);
   delay(shutterOpeningTime);
-  digitalWrite(triggerCamera0, 0);
-  digitalWrite(triggerCamera1, 0);
-  digitalWrite(triggerCamera2, 0);
-  delayMicroseconds(triggerPulseLength_us);
-  digitalWrite(triggerCamera0, 1);
-  digitalWrite(triggerCamera1, 1);
-  digitalWrite(triggerCamera2, 1);
+
+  triggerCameras();
+
   delay(sequenceLength - (triggerPulseLength_us / 1000));
   digitalWrite(triggerShutter, 1);
   delay(shutterClosingTime);
@@ -146,7 +145,7 @@ float absToDeg(int pos){
 void commandExecute(String command) {
   if (command.substring(0,6) == "shoot=") {
     int sequenceLength = command.substring(6).toInt();
-    if((sequenceLength <= 0) || (sequenceLength > 1000)){
+    if((sequenceLength <= 0) || (sequenceLength > 2500)){
       error("SequenceLength out of range!");
       return;
     }
@@ -160,6 +159,7 @@ void commandExecute(String command) {
     ok();
   } 
   else if (command == "triggerCameras") {
+    triggerCameras();
     ok();
   } 
   else if (command == "targetPosition") {
@@ -273,6 +273,7 @@ void loop()
 
 
 }
+
 
 void interruptRoutine() {
 
