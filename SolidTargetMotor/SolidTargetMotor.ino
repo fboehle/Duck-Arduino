@@ -8,7 +8,7 @@
  *
  *   Description: Program that uses the encoder pulses from the target motor to accurately control the timing of the laser shutter. The encoder pulses generate an interrupt which keeps track of the target position. The mainloops waits until a full command over the serial port has been send and then deligates it to a subroutine.  
  *
- *   Notes:
+ *   Notes: TODO: Reintegrate the flip blocker
  *
  *   Changelog:
  *
@@ -57,14 +57,18 @@ const int motorPhaseAInterrupt = 0;
 
 //Define environmental variables
 const int triggerPulseLength_us = 1000; //in us
+
 const int triggerShutter = trigger0Pin;
+
 const int triggerCamera0 = trigger1Pin;
 const int triggerCamera1 = trigger2Pin;
 const int triggerCamera2 = trigger3Pin;
+
 const int triggerFlipBlocker = trigger4Pin;
+
 const int pulsesPerRound = 1800; //1800 was the original value
 const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
-const int sequenceLengthDefault = 100; //duration of registrateable shots in ms
+
 const int shutterOpeningTime = 15;
 const int shutterClosingTime = 15;
 
