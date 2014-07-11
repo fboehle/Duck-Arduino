@@ -286,6 +286,7 @@ void setup() {
 
   attachInterrupt(motorPhaseAInterrupt, interruptRoutine, FALLING);
   melservoInitialize();
+  
   Serial.begin(9600);
 }
 
@@ -305,6 +306,7 @@ void loop()
   //do something every x miliseconds
   if ((millis() - timeLastWork) >= timeWorkPeriod) {
     timeLastWork += timeWorkPeriod;
+    
 #ifdef DEBUG
     targetPosition++;
     targetPosition = targetPosition % pulsesPerRound;
