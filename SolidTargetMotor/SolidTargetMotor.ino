@@ -43,28 +43,52 @@ Available Querries:
 
 
 //Define hardware connections to the uC
-const int trigger0Pin = A0;
-const int trigger1Pin = A1;
-const int trigger2Pin = A2;
-const int trigger3Pin = A3;
-const int trigger4Pin = A4;
+const int trigger0 = A0;
+const int trigger1 = A1;
+const int trigger2 = A2;
+const int trigger3 = A3;
+const int trigger4 = A4;
 
 const int ledPin = 13;
 
-const int motorPhaseAPin = 2;
-const int motorPhaseBPin = 3;
-const int motorPhaseAInterrupt = 0;
+
+const int optocoupledInput0 = 2;
+const int optocoupledInput1 = 3;
+
+const int openCollectorOutput0 = 22;
+const int openCollectorOutput1 = 24;
+const int openCollectorOutput2 = 26;
+const int openCollectorOutput3 = 28;
+const int openCollectorOutput4 = 30;
+const int openCollectorOutput5 = 32;
+const int openCollectorOutput6 = 34;
+const int openCollectorOutput7 = 36;
+const int openCollectorOutput8 = 38;
+const int openCollectorOutput9 = 40;
+const int openCollectorOutput10 = 42;
+const int openCollectorOutput11 = 44;
+
 
 //Define environmental variables
 const int triggerPulseLength_us = 1000; //in us
 
-const int triggerShutter = trigger0Pin;
+const int melservoSON = openCollectorOutput0;
+const int melservoST1 = openCollectorOutput1;
+const int melservoST2 = openCollectorOutput2;
+const int melservoSP1 = openCollectorOutput3;
+const int melservoSP2 = openCollectorOutput4;
 
-const int triggerCamera0 = trigger1Pin;
-const int triggerCamera1 = trigger2Pin;
-const int triggerCamera2 = trigger3Pin;
+const int motorPhaseAPin = optocoupledInput0;
+const int motorPhaseBPin = optocoupledInput1;
+const int motorPhaseAInterrupt = 0;
 
-const int triggerFlipBlocker = trigger4Pin;
+const int triggerShutter = trigger0;
+
+const int triggerCamera0 = trigger1;
+const int triggerCamera1 = trigger2;
+const int triggerCamera2 = trigger3;
+
+const int triggerFlipBlocker = trigger4;
 
 const int pulsesPerRound = 1800; //1800 was the original value
 const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
@@ -90,6 +114,26 @@ void ok(void){
   Serial.println("ok");
 }
 
+
+
+void melservoStart(void){
+  digitalWrite(melservoSON, 1);
+
+}
+void melservoStop(void){
+  digitalWrite(melservoSON, 0);
+
+}
+void melservoSpeed(void){
+}
+void melservoInitialize(void){
+  digitalWrite(melservoST1, 1);
+  digitalWrite(melservoST2, 0);
+  digitalWrite(melservoSP1, 0);
+  digitalWrite(melservoSP2, 0);
+    
+  
+}
 void triggerCameras(void){
   digitalWrite(triggerCamera0, 0);
   digitalWrite(triggerCamera1, 0);
@@ -173,6 +217,14 @@ void commandExecute(String command) {
     targetPosition = 0;
     ok();
   } 
+  else if (command == "motorStart") {
+    melservoStart();
+    ok();
+  } 
+  else if (command == "motorStop") {
+    melservoStop();
+    ok();
+  } 
   else if (command == "testFunction") {
     digitalWrite(triggerFlipBlocker, 0);
     delay(2000);
@@ -192,31 +244,56 @@ void setup() {
   // initialize the digital pin as an output.
   pinMode(ledPin, OUTPUT);
 
-  digitalWrite(trigger0Pin, 1);
-  digitalWrite(trigger1Pin, 1);
-  digitalWrite(trigger2Pin, 1);
-  digitalWrite(trigger3Pin, 1);
-  digitalWrite(trigger4Pin, 1);
-
-
-  pinMode(trigger0Pin, OUTPUT);
-  pinMode(trigger1Pin, OUTPUT);
-  pinMode(trigger2Pin, OUTPUT);
-  pinMode(trigger3Pin, OUTPUT);
-  pinMode(trigger4Pin, OUTPUT);
+  digitalWrite(trigger0, 0);
+  digitalWrite(trigger1, 0);
+  digitalWrite(trigger2, 0);
+  digitalWrite(trigger3, 0);
+  digitalWrite(trigger4, 0);
+  pinMode(trigger0, OUTPUT);
+  pinMode(trigger1, OUTPUT);
+  pinMode(trigger2, OUTPUT);
+  pinMode(trigger3, OUTPUT);
+  pinMode(trigger4, OUTPUT);
+  
+  digitalWrite(openCollectorOutput0, 0);
+  digitalWrite(openCollectorOutput1, 0);
+  digitalWrite(openCollectorOutput2, 0);
+  digitalWrite(openCollectorOutput3, 0);
+  digitalWrite(openCollectorOutput4, 0);
+  digitalWrite(openCollectorOutput5, 0);
+  digitalWrite(openCollectorOutput6, 0);
+  digitalWrite(openCollectorOutput7, 0);
+  digitalWrite(openCollectorOutput8, 0);
+  digitalWrite(openCollectorOutput9, 0);
+  digitalWrite(openCollectorOutput10, 0);
+  digitalWrite(openCollectorOutput11, 0);
+  
+  pinMode(openCollectorOutput0, OUTPUT);
+  pinMode(openCollectorOutput1, OUTPUT);
+  pinMode(openCollectorOutput2, OUTPUT);
+  pinMode(openCollectorOutput3, OUTPUT);
+  pinMode(openCollectorOutput4, OUTPUT);
+  pinMode(openCollectorOutput5, OUTPUT);
+  pinMode(openCollectorOutput6, OUTPUT);
+  pinMode(openCollectorOutput7, OUTPUT);
+  pinMode(openCollectorOutput8, OUTPUT);
+  pinMode(openCollectorOutput9, OUTPUT);
+  pinMode(openCollectorOutput10, OUTPUT);
+  pinMode(openCollectorOutput11, OUTPUT);
 
   pinMode(motorPhaseAPin, INPUT_PULLUP);
   pinMode(motorPhaseBPin, INPUT_PULLUP);
 
   attachInterrupt(motorPhaseAInterrupt, interruptRoutine, FALLING);
-
+  melservoInitialize
   Serial.begin(9600);
 }
 
 // the loop routine runs over and over again forever:
 
-long timeLastWork = 0;
+long timeLastWork = 0; //variables to do something every x ms 
 const int timeWorkPeriod = 10;
+
 const int commandBufferLength = 20;
 char commandBuffer[commandBufferLength];
 int commandBufferPosition = 0;
@@ -225,7 +302,20 @@ String command;
 void loop()
 {
 
+  while(1){
+    
+    delay(200);
 
+  digitalWrite(openCollectorOutput2, 0);
+
+    delay(800);
+
+  digitalWrite(openCollectorOutput2, 1);
+
+  }
+  
+  
+/*
   //do something every x miliseconds
   if ((millis() - timeLastWork) >= timeWorkPeriod) {
     timeLastWork += timeWorkPeriod;
@@ -275,7 +365,7 @@ void loop()
     //Serial.println(targetPositionDeg);
   }
 
-
+*/
 }
 
 
