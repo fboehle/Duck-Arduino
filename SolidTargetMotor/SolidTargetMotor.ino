@@ -285,7 +285,7 @@ void setup() {
   pinMode(motorPhaseBPin, INPUT_PULLUP);
 
   attachInterrupt(motorPhaseAInterrupt, interruptRoutine, FALLING);
-  melservoInitialize
+  melservoInitialize();
   Serial.begin(9600);
 }
 
@@ -302,20 +302,6 @@ String command;
 void loop()
 {
 
-  while(1){
-    
-    delay(200);
-
-  digitalWrite(openCollectorOutput2, 0);
-
-    delay(800);
-
-  digitalWrite(openCollectorOutput2, 1);
-
-  }
-  
-  
-/*
   //do something every x miliseconds
   if ((millis() - timeLastWork) >= timeWorkPeriod) {
     timeLastWork += timeWorkPeriod;
@@ -365,7 +351,6 @@ void loop()
     //Serial.println(targetPositionDeg);
   }
 
-*/
 }
 
 
