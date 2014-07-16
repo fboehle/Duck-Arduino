@@ -129,9 +129,10 @@ void melservoSpeed(void){
 void melservoInitialize(void){
   digitalWrite(melservoST1, 1);
   digitalWrite(melservoST2, 0);
-  digitalWrite(melservoSP1, 0);
+  digitalWrite(melservoSP1, 1);
   digitalWrite(melservoSP2, 0);
-    
+  delay(1000);
+ digitalWrite(melservoSON, 1);  
   
 }
 void triggerCameras(void){
@@ -286,7 +287,7 @@ void setup() {
 
   attachInterrupt(motorPhaseAInterrupt, interruptRoutine, FALLING);
   melservoInitialize();
-  
+    
   Serial.begin(9600);
 }
 
