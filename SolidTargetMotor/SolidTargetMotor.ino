@@ -96,6 +96,8 @@ const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
 const int shutterOpeningTime = 15;
 const int shutterClosingTime = 15;
 
+const int flipOpeningTime = 500;
+
 //Define Global Variables
 volatile int targetPosition = 0;
 volatile int targetShotUntil = 0;
@@ -124,7 +126,10 @@ void melservoStop(void){
   digitalWrite(melservoSON, 0);
 
 }
-void melservoSpeed(void){
+void melservoSpeed(int speed){
+  digitalWrite(melservoSP1, (speed >> 0) & 1);
+  digitalWrite(melservoSP2, (speed >> 1) & 1);
+  
 }
 void melservoInitialize(void){
   digitalWrite(melservoST1, 1);
@@ -134,13 +139,13 @@ void melservoInitialize(void){
   
 }
 void triggerCameras(void){
-  digitalWrite(triggerCamera0, 0);
-  digitalWrite(triggerCamera1, 0);
-  digitalWrite(triggerCamera2, 0);
-  delayMicroseconds(triggerPulseLength_us);
   digitalWrite(triggerCamera0, 1);
   digitalWrite(triggerCamera1, 1);
   digitalWrite(triggerCamera2, 1);
+  delayMicroseconds(triggerPulseLength_us);
+  digitalWrite(triggerCamera0, 0);
+  digitalWrite(triggerCamera1, 0);
+  digitalWrite(triggerCamera2, 0);
 }
 
 //shooting execution routine  
@@ -156,19 +161,24 @@ void shootingRoutine(int sequenceLength) {
       return;
     }
   }
+  
+  digitalWrite(triggerFlipBlocker,1);
+  delay(flipOpeningTime);
 
-#ifndef DEBUG
+
   while ( targetPosition != (targetShotUntil) ); //pay attention to declare the variable as volatile otherwise the IDE optimizes the check out
-#endif
 
-  digitalWrite(triggerShutter, 0);
+
+  digitalWrite(triggerShutter, 1);
   delay(shutterOpeningTime);
 
   triggerCameras();
 
   delay(sequenceLength - (triggerPulseLength_us / 1000));
-  digitalWrite(triggerShutter, 1);
+  digitalWrite(triggerShutter, 0);
+  digitalWrite(triggerFlipBlocker,0);
   delay(shutterClosingTime);
+
 
   if (targetPosition < targetShotUntil){
     error("Target Overshot");
@@ -216,13 +226,23 @@ void commandExecute(String command) {
     targetPosition = 0;
     ok();
   } 
-  else if (command == "motorStart") {
+  else if (command == "startMotor") {
     melservoStart();
     ok();
   } 
-  else if (command == "motorStop") {
+  else if (command == "stopMotor") {
     melservoStop();
     ok();
+  }  
+  else if (command.substring(0,9) == "setSpeed=") {
+    int speed = command.substring(9).toInt();
+    if((speed < 0) || (speed > 3)){
+      error("Speed out of range!");
+    }else{
+      melservoSpeed(speed);
+      ok();
+    }
+    
   } 
   else if (command == "testFunction") {
     digitalWrite(triggerFlipBlocker, 0);
