@@ -37,6 +37,7 @@ Available Querries:
  *
  **********************************************************/
  
+#include "encoder.h"
  
 
 //#define DEBUG
@@ -50,7 +51,6 @@ const int trigger3 = A3;
 const int trigger4 = A4;
 
 const int ledPin = 13;
-
 
 const int optocoupledInput0 = 2;
 const int optocoupledInput1 = 3;
@@ -83,15 +83,10 @@ const int motorPhaseBPin = optocoupledInput1;
 const int motorPhaseAInterrupt = 0;
 
 const int triggerShutter = trigger0;
-
 const int triggerCamera0 = trigger1;
 const int triggerCamera1 = trigger2;
 const int triggerCamera2 = trigger3;
-
 const int triggerFlipBlocker = trigger4;
-
-const int pulsesPerRound = 1800; //1800 was the original value
-const float degPerPulse = 1.0 / pulsesPerRound * 360.0;
 
 const int shutterOpeningTime = 15;
 const int shutterClosingTime = 15;
@@ -99,18 +94,19 @@ const int shutterClosingTime = 15;
 const int flipOpeningTime = 500;
 
 //Define Global Variables
-volatile int targetPosition = 0;
-volatile int targetShotUntil = 0;
-volatile int targetShotsFired = 0;
-volatile int targetRotations = 0;
-volatile boolean targetPositionChanged = 0;
+float targetShotUntil = 0;
+int targetShotsFired = 0;
+//int targetRotations = 0;
+volatile bool targetPositionChanged = 0;
+
+#define PulsesPerRound 1800
+Encoder myEncoder(PulsesPerRound);
 
 //error handling routine. Keeps the LED as long on as the error has been cleared
 void error(String str) {
   digitalWrite(ledPin, 1);
   Serial.println("ERROR: " + str);
 }
-
 //return an OK message
 void ok(void){
   Serial.println("ok");
@@ -120,24 +116,26 @@ void ok(void){
 
 void melservoStart(void){
   digitalWrite(melservoSON, 1);
-
 }
+
 void melservoStop(void){
   digitalWrite(melservoSON, 0);
-
 }
+
 void melservoSpeed(int speed){
   digitalWrite(melservoSP1, (speed >> 0) & 1);
-  digitalWrite(melservoSP2, (speed >> 1) & 1);
-  
+  digitalWrite(melservoSP2, (speed >> 1) & 1); 
 }
+
 void melservoInitialize(void){
   digitalWrite(melservoST1, 1);
   digitalWrite(melservoST2, 0);
   digitalWrite(melservoSP1, 0);
   digitalWrite(melservoSP2, 0); 
-  
 }
+
+
+
 void triggerCameras(void){
   digitalWrite(triggerCamera0, 1);
   digitalWrite(triggerCamera1, 1);
@@ -150,12 +148,17 @@ void triggerCameras(void){
 
 //shooting execution routine  
 void shootingRoutine(int sequenceLength) {
+  
+  if((sequenceLength <= 0) || (sequenceLength > 2500)){
+    error("SequenceLength out of range!");
+    return;
+  }
 
   //check if we have space! This is still something basic and not completely reliable. Will be rewritten later
   if (targetShotsFired) {
-    int freeSpace = pulsesPerRound - targetShotUntil;
-    int averageSpaceUsed = targetShotUntil / targetShotsFired;
-    averageSpaceUsed += averageSpaceUsed / 10; //give it plus 10% for security
+    float freeSpace = 360.0 - targetShotUntil;
+    float averageSpaceUsed = targetShotUntil / targetShotsFired;
+    averageSpaceUsed += averageSpaceUsed / 30; //give it plus 30% for security
     if ((freeSpace - averageSpaceUsed) <= 0 ) {
       error("No free target space");
       return;
@@ -166,8 +169,7 @@ void shootingRoutine(int sequenceLength) {
   delay(flipOpeningTime);
 
 
-  while ( targetPosition != (targetShotUntil) ); //pay attention to declare the variable as volatile otherwise the IDE optimizes the check out
-
+  myEncoder.wait(targetShotUntil);
 
   digitalWrite(triggerShutter, 1);
   delay(shutterOpeningTime);
@@ -179,22 +181,16 @@ void shootingRoutine(int sequenceLength) {
   digitalWrite(triggerFlipBlocker,0);
   delay(shutterClosingTime);
 
-
-  if (targetPosition < targetShotUntil){
+  if (myEncoder.getAngle() < targetShotUntil){
     error("Target Overshot");
-    targetShotUntil = pulsesPerRound;
+    targetShotUntil = 360;
     targetShotsFired++;
   }
   else{
     ok();
-    targetShotUntil = targetPosition + 1;
+    targetShotUntil = myEncoder.getAngle();
     targetShotsFired++;
   }
-
-}
-
-float absToDeg(int pos){
-  return degPerPulse * pos;
 }
 
 
@@ -202,17 +198,14 @@ float absToDeg(int pos){
 void commandExecute(String command) {
   if (command.substring(0,6) == "shoot=") {
     int sequenceLength = command.substring(6).toInt();
-    if((sequenceLength <= 0) || (sequenceLength > 2500)){
-      error("SequenceLength out of range!");
-      return;
-    }
     shootingRoutine(sequenceLength); //shootingRoutine sends its own answer
   } 
   else if (command == "shotUntil") {
-    Serial.println(absToDeg(targetShotUntil));
+    Serial.println(targetShotUntil);
   } 
   else if (command == "resetTarget") {
     targetShotUntil = 0;
+    targetShotsFired = 0;
     ok();
   } 
   else if (command == "triggerCameras") {
@@ -220,10 +213,10 @@ void commandExecute(String command) {
     ok();
   } 
   else if (command == "targetPosition") {
-    Serial.println(absToDeg(targetPosition));
+    Serial.println(myEncoder.getAngle());
   } 
   else if (command == "calibrate") {
-    targetPosition = 0;
+    myEncoder.zero();
     ok();
   } 
   else if (command == "startMotor") {
@@ -260,7 +253,7 @@ void commandExecute(String command) {
 
 // the setup routine runs once when you press reset:
 void setup() {
-  // initialize the digital pin as an output.
+
   pinMode(ledPin, OUTPUT);
 
   digitalWrite(trigger0, 0);
@@ -303,10 +296,10 @@ void setup() {
   pinMode(motorPhaseAPin, INPUT_PULLUP);
   pinMode(motorPhaseBPin, INPUT_PULLUP);
 
+  
+  Serial.begin(9600);
   attachInterrupt(motorPhaseAInterrupt, interruptRoutine, FALLING);
   melservoInitialize();
-    
-  Serial.begin(9600);
 }
 
 // the loop routine runs over and over again forever:
@@ -325,14 +318,6 @@ void loop()
   //do something every x miliseconds
   if ((millis() - timeLastWork) >= timeWorkPeriod) {
     timeLastWork += timeWorkPeriod;
-    
-#ifdef DEBUG
-    targetPosition++;
-    targetPosition = targetPosition % pulsesPerRound;
-#endif
-
-
-
   }
 
 
@@ -379,20 +364,11 @@ void interruptRoutine() {
 
   digitalWrite(ledPin, !digitalRead(ledPin));
 
-  if (digitalRead(motorPhaseBPin)) {
-    targetPosition++;
+  if (digitalRead(motorPhaseBPin)) { //check whether the motor moved forward or backwards
+    myEncoder.tick();
   } 
   else {
-    targetPosition--;
-  }
-
-  if (targetPosition >= pulsesPerRound) {
-    targetPosition = targetPosition - pulsesPerRound;
-    targetRotations++;
-  } 
-  else if (targetPosition < 0) {
-    targetPosition = targetPosition + pulsesPerRound;
-    targetRotations--;
+    myEncoder.sTick();
   }
 
   targetPositionChanged = 1;
