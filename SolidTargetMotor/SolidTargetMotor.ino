@@ -134,6 +134,16 @@ void melservoInitialize(void){
   digitalWrite(melservoSP2, 0); 
 }
 
+void melservoGoto(float gotoAngle){
+  melservoSpeed(3);
+  melservoStart();
+  myEncoder.wait(gotoAngle-30);
+  melservoSpeed(1);
+  myEncoder.wait(gotoAngle);
+  melservoStop();
+  melservoSpeed(0);
+}
+
 
 
 void triggerCameras(void){
@@ -165,6 +175,8 @@ void shootingRoutine(int sequenceLength) {
     }
   }
   
+  //melservoStart(); //flig delay should be long enough to accelerate motor, NO IT IS NOT
+  
   digitalWrite(triggerFlipBlocker,1);
   delay(flipOpeningTime);
 
@@ -191,6 +203,7 @@ void shootingRoutine(int sequenceLength) {
     targetShotUntil = myEncoder.getAngle();
     targetShotsFired++;
   }
+  //melservoGoto(targetShotUntil - 90);
 }
 
 
