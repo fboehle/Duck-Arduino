@@ -44,7 +44,7 @@
   
   }
   int Encoder::angleToTicks(float angle){
-    return (int) (angle / 360 * ticksPerRound);
+    return rollover((int) (angle / 360 * ticksPerRound));
   }
   
   float Encoder::ticksToAngle(int ticksValue){
