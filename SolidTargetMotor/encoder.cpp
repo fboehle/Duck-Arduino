@@ -16,7 +16,7 @@
  
  #include "encoder.h"
  
-  Encoder::Encoder(unsigned int ticksPerRoundInit){
+  Encoder::Encoder(int ticksPerRoundInit){
     ticksPerRound = ticksPerRoundInit;
     ticks = 0;
   }
@@ -39,19 +39,19 @@
     return ticksToAngle(ticks);
   }
   bool Encoder::wait(float angle){
-    unsigned int tickToWaitFor = angleToTicks(angle);
+    int tickToWaitFor = angleToTicks(angle);
     while ( ticks != tickToWaitFor );
   
   }
-  unsigned int Encoder::angleToTicks(float angle){
-    return (unsigned int) (angle / 360 * ticksPerRound);
+  int Encoder::angleToTicks(float angle){
+    return (int) (angle / 360 * ticksPerRound);
   }
   
-  float Encoder::ticksToAngle(unsigned int ticksValue){
+  float Encoder::ticksToAngle(int ticksValue){
     return 360.0 / ticksPerRound * ticksValue;
   }
   
-  unsigned int Encoder::rollover(unsigned int ticksValue){
+  int Encoder::rollover(int ticksValue){
     
     if (ticksValue >= ticksPerRound) {
       return ticksValue - ticksPerRound;

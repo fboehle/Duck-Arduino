@@ -20,7 +20,7 @@
 class Encoder
 {
   public:
-    Encoder(unsigned int);
+    Encoder(int);
     ~Encoder();
     void tick();
     void sTick();
@@ -30,11 +30,11 @@ class Encoder
     void zero(void);
 
   private:
-    unsigned int angleToTicks(float);
-    float ticksToAngle(unsigned int);
-    unsigned int rollover(unsigned int);
+    int angleToTicks(float);
+    float ticksToAngle(int);
+    int rollover(int);
     
-    volatile unsigned int ticks; //pay attention to declare the variable as volatile otherwise the IDE optimizes the check out
+    volatile int ticks; //pay attention to declare the variable as volatile otherwise the IDE optimizes the check out
     int ticksPerRound;
     
 
