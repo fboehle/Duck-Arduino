@@ -54,10 +54,10 @@
   int Encoder::rollover(int ticksValue){
     
     if (ticksValue >= ticksPerRound) {
-      return ticksValue - ticksPerRound;
+      return rollover(ticksValue - ticksPerRound);
     } 
     else if (ticksValue < 0) {
-      return ticksValue + ticksPerRound;
+      return rollover(ticksValue + ticksPerRound);
     }
     else{
       return ticksValue;
