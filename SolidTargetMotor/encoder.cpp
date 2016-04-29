@@ -15,6 +15,7 @@
  **********************************************************/ 
  
  #include "encoder.h"
+ #include "Arduino.h"
  
   Encoder::Encoder(int ticksPerRoundInit){
     ticksPerRound = ticksPerRoundInit;
@@ -38,9 +39,17 @@
   float Encoder::getAngle(){
     return ticksToAngle(ticks);
   }
-  bool Encoder::wait(float angle){
+  bool Encoder::wait(float angle, int timoutMs){
     int tickToWaitFor = angleToTicks(angle);
-    while ( ticks != tickToWaitFor );
+    unsigned long startingTime = millis();
+    while ( ticks != tickToWaitFor ){
+      if(timoutMs != -1){
+        if((millis() - startingTime) > timoutMs){
+          return 1;
+        }
+      }
+    }
+    return 0;
   
   }
   int Encoder::angleToTicks(float angle){

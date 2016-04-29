@@ -26,7 +26,7 @@ class Encoder
     void sTick();
     float getSpeed();
     float getAngle();
-    bool wait(float);
+    bool wait(float, int);
     void zero(void);
 
   private:

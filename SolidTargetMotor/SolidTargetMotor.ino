@@ -122,7 +122,7 @@ void melservoStop(void){
   digitalWrite(melservoSON, 0);
 }
 
-void melservoSpeed(int speed){
+void melservoSpeed(int speed){ // 0: 
   digitalWrite(melservoSP1, (speed >> 0) & 1);
   digitalWrite(melservoSP2, (speed >> 1) & 1); 
 }
@@ -137,9 +137,17 @@ void melservoInitialize(void){
 void melservoGoto(float gotoAngle){
   melservoSpeed(3);
   melservoStart();
-  myEncoder.wait(gotoAngle-30);
+  if(myEncoder.wait(gotoAngle-30, 10000)){
+    error("Timeout"); 
+    melservoStop();
+    return;
+  }
   melservoSpeed(1);
-  myEncoder.wait(gotoAngle);
+  if(myEncoder.wait(gotoAngle, 10000)){
+    error("Timeout"); 
+    melservoStop();
+    return;
+  }
   melservoStop();
   melservoSpeed(0);
 }
@@ -175,13 +183,27 @@ void shootingRoutine(int sequenceLength) {
     }
   }
   
-  //melservoStart(); //flig delay should be long enough to accelerate motor, NO IT IS NOT
-  
+  melservoStart(); //flip delay should be long enough to accelerate motor, NO IT IS NOT
+  if(myEncoder.wait(targetShotUntil - 175,5000)){ // It should have stoped 180 degrees before the next shooting, but in case the motor was somewhere else, wait until a defined position
+    error("Timeout"); 
+    melservoStop();
+    return;
+  }  
+  if(myEncoder.wait(targetShotUntil - 90,5000)){
+    error("Timeout"); 
+    melservoStop();
+    return;
+  }  
   digitalWrite(triggerFlipBlocker,1);
+  
   delay(flipOpeningTime);
 
-
-  myEncoder.wait(targetShotUntil);
+  if(myEncoder.wait(targetShotUntil,500)){
+    digitalWrite(triggerFlipBlocker,0);
+    melservoStop();
+    error("Flip Didn't open quick engough"); 
+    return;
+  }  
 
   digitalWrite(triggerShutter, 1);
   delay(shutterOpeningTime);
@@ -199,11 +221,11 @@ void shootingRoutine(int sequenceLength) {
     targetShotsFired++;
   }
   else{
-    ok();
     targetShotUntil = myEncoder.getAngle();
     targetShotsFired++;
+    ok();
   }
-  //melservoGoto(targetShotUntil - 90);
+  melservoGoto(targetShotUntil + 180);
 }
 
 
